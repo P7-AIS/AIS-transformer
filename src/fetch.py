@@ -36,11 +36,12 @@ class CsvAtt(Enum):
 def read_files(connection, path: str):
     ais_data = parse_csv(path)
     clean_ais_data = clean_data(ais_data)
-    destination = destination_creator(connection, ais_data)
-    ship_type = ship_type_creator(connection, ais_data)
-    mobile_type = mobile_type_creator(connection, ais_data)
-    navigational_status = navigational_status_creator(connection, ais_data)
-    vessel = vessel_creator(connection, ais_data, ship_type)
+    destination = destination_creator(connection, clean_ais_data.copy())
+    ship_type = ship_type_creator(connection, clean_ais_data.copy())
+    mobile_type = mobile_type_creator(connection, clean_ais_data.copy())
+    navigational_status = navigational_status_creator(connection, clean_ais_data.copy())
+    vessel = vessel_creator(connection, clean_ais_data.copy(), ship_type)
+    ais_message_creator(connection, clean_ais_data.copy(), destination, mobile_type, navigational_status)
 
 
 def parse_csv(file):
@@ -49,6 +50,7 @@ def parse_csv(file):
 def clean_data(ais_data):
     data = clean_position(ais_data)
     data = clean_duplicate(data)
+    data = data.rename(columns={'# Timestamp': 'Timestamp'})
     return data
 
 def clean_position(ais_data):
@@ -183,12 +185,9 @@ def navigational_status_hashmap(conn):
     return navigational_status_hash
 
 def vessel_creator(connection, ais_data, ship_type):
-    vessels = ais_data[['MMSI', 'Name', 'Ship type', 'IMO', 'Callsign', 'Width', 'Length', 'Type of position fixing device', 'A', 'B', 'C', 'D']]
+    vessels = ais_data[['MMSI', 'Name', 'Ship type', 'IMO', 'Callsign', 'Width', 'Length', 'Type of position fixing device', 'A', 'B', 'C', 'D']].groupby('MMSI', as_index=False).first()
     vessels['IMO'] = vessels['IMO'].replace('Unknown', None)
     vessels = vessels.replace(np.nan, None)
-
-
-    print(vessels)
 
     cur = connection.cursor()
 
@@ -207,10 +206,33 @@ def vessel_creator(connection, ais_data, ship_type):
             b = int(vessels['B'][i]) if not pd.isna(vessels['B'][i]) else None
             c = int(vessels['C'][i]) if not pd.isna(vessels['C'][i]) else None
             d = int(vessels['D'][i]) if not pd.isna(vessels['D'][i]) else None
-            print((mmsi, name, st, imo, call_sign, width, length, topfd, a, b, c, d))
             copy.write_row((mmsi, name, st, imo, call_sign, width, length, topfd, a, b, c, d))
 
-    cur.execute("INSERT INTO vessel mmsi, name, ship_type_id, imo, call_sign, width, length, position_fixing_device, to_bow, to_stern, to_port, to_starboard SELECT DISTINCT tmp.mmsi FROM tmp_table tmp LEFT JOIN vessel vl ON tmp.mmsi = vl.mmsi WHERE vl.mmsi IS NULL")
+    cur.execute("INSERT INTO vessel (mmsi, name, ship_type_id, imo, call_sign, width, length, position_fixing_device, to_bow, to_stern, to_port, to_starboard) SELECT DISTINCT tmp.mmsi, tmp.name, tmp.ship_type_id, tmp.imo, tmp.call_sign, tmp.width, tmp.length, tmp.position_fixing_device, tmp.to_bow, tmp.to_stern, tmp.to_port, tmp.to_starboard FROM tmp_table tmp LEFT JOIN vessel vl ON tmp.mmsi = vl.mmsi WHERE vl.mmsi IS NULL")
 
     connection.commit()
     cur.close()
+
+def ais_message_creator(connection, ais_data, destinations, mobile_types, navigational_statuses):
+    ais_message = ais_data[['Timestamp', 'Type of mobile', 'MMSI', 'Latitude', 'Longitude', 'Navigational status', 'ROT', 'SOG', 'COG', 'Heading', 'Cargo type', 'Draught', 'Destination', 'ETA', 'Data source type']]
+
+    cur = connection.cursor()
+
+    cur.execute("CREATE TEMP TABLE tmp_table ON COMMIT DROP AS SELECT * FROM ais_message WITH NO DATA")
+    with cur.copy("COPY tmp_table (destination_id, mobile_type_id, navigational_status_id, data_source_type, timestamp, latitude, longitude, rot, sog, cog, heading, draught, cargo_type, eta, vessel_mmsi) FROM STDIN") as copy:
+        for i in range(0,len(ais_message.index)):
+            destination_id = destinations[ais_message['Destination'][i]]
+            mobile_type_id = mobile_types[ais_message['Type of mobile'][i]]
+            navigational_status_id = navigational_statuses[ais_message['Navigational status'][i]]
+            data_source_type = ais_message['Data source type'][i]
+            timestamp = ais_message['Timestamp'][i]
+            latitude = ais_message['Latitude'][i]
+            longitude = ais_message['Longitude'][i]
+            rot = ais_message['ROT'][i]
+            sog = ais_message['SOG'][i]
+            cog = ais_message['COG'][i]
+            heading = ais_message['Heading'][i]
+            draught = ais_message['Draught'][i]
+            cargo_type = ais_message['Cargo type'][i]
+            eta = ais_message['ETA'][i]
+            vessel_mmsi = ais_message['MMSI'][i]
