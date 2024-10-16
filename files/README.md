@@ -1,0 +1,1 @@
+Place AIS .zip files from https://web.ais.dk/aisdata/ in this folder.
