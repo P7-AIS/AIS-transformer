@@ -218,21 +218,27 @@ def ais_message_creator(connection, ais_data, destinations, mobile_types, naviga
 
     cur = connection.cursor()
 
+    print(ais_message)
+
     cur.execute("CREATE TEMP TABLE tmp_table ON COMMIT DROP AS SELECT * FROM ais_message WITH NO DATA")
     with cur.copy("COPY tmp_table (destination_id, mobile_type_id, navigational_status_id, data_source_type, timestamp, latitude, longitude, rot, sog, cog, heading, draught, cargo_type, eta, vessel_mmsi) FROM STDIN") as copy:
         for i in range(0,len(ais_message.index)):
-            destination_id = destinations[ais_message['Destination'][i]]
-            mobile_type_id = mobile_types[ais_message['Type of mobile'][i]]
-            navigational_status_id = navigational_statuses[ais_message['Navigational status'][i]]
-            data_source_type = ais_message['Data source type'][i]
-            timestamp = ais_message['Timestamp'][i]
-            latitude = ais_message['Latitude'][i]
-            longitude = ais_message['Longitude'][i]
-            rot = ais_message['ROT'][i]
-            sog = ais_message['SOG'][i]
-            cog = ais_message['COG'][i]
-            heading = ais_message['Heading'][i]
-            draught = ais_message['Draught'][i]
-            cargo_type = ais_message['Cargo type'][i]
-            eta = ais_message['ETA'][i]
-            vessel_mmsi = ais_message['MMSI'][i]
+            destination_id = destinations[ais_message['Destination'].iloc[i]]
+            mobile_type_id = mobile_types[ais_message['Type of mobile'].iloc[i]]
+            navigational_status_id = navigational_statuses[ais_message['Navigational status'].iloc[i]]
+            data_source_type = ais_message['Data source type'].iloc[i]
+            timestamp = ais_message['Timestamp'].iloc[i]
+            latitude = ais_message['Latitude'].iloc[i]
+            longitude = ais_message['Longitude'].iloc[i]
+            rot = ais_message['ROT'].iloc[i]
+            sog = ais_message['SOG'].iloc[i]
+            cog = ais_message['COG'].iloc[i]
+            heading = ais_message['Heading'].iloc[i]
+            draught = ais_message['Draught'].iloc[i]
+            cargo_type = ais_message['Cargo type'].iloc[i]
+            eta = ais_message['ETA'].iloc[i]
+            vessel_mmsi = ais_message['MMSI'].iloc[i]
+
+            copy.write_row((destination_id, mobile_type_id, navigational_status_id, data_source_type, timestamp, latitude, longitude, rot, sog, cog, heading, draught, cargo_type, eta, vessel_mmsi))
+
+    #cur.execute("INSERT INTO ais_message (destination_id, mobile_type_id, navigational_status_id, data_source_type, timestamp, latitude, longitude, rot, sog, cog, heading, draught, cargo_type, eta, vessel_mmsi)")
