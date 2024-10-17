@@ -37,25 +37,32 @@ class CsvAtt(Enum):
 def read_files(connection, path: str):
     ais_data = parse_csv(path)
     print("read csv")
-    clean_ais_data = clean_data(ais_data)
-    print("cleaned dataset")
-    ship_type = ship_type_creator(connection, clean_ais_data.copy())
-    print("uploaded ship type")
-    mobile_type = mobile_type_creator(connection, clean_ais_data.copy())
-    print("uploaded mobile type")
-    navigational_status = navigational_status_creator(connection, clean_ais_data.copy())
-    print("uploaded navigational status")
-    countryIds = country_creator(connection, ais_data)
-    print("uploaded countries")
-    vessel = vessel_creator(connection, clean_ais_data.copy(), ship_type, countryIds)
-    print("uploaded vessels")
-    ais_message_creator(connection, clean_ais_data.copy(), mobile_type, navigational_status)
-    print("uploaded ais messages")
-    vessel_trajectory_creator(connection, clean_ais_data.copy())
-    print("uploaded vessel trajectories")
+
+    for i, ais_data_chunk in enumerate(ais_data):
+        print(f" -- Processing chunk {i + 1} -- ")
+
+        clean_ais_data = clean_data(ais_data_chunk)
+        print("cleaned dataset")
+        ship_type = ship_type_creator(connection, clean_ais_data.copy())
+        print("uploaded ship type")
+        mobile_type = mobile_type_creator(connection, clean_ais_data.copy())
+        print("uploaded mobile type")
+        navigational_status = navigational_status_creator(connection, clean_ais_data.copy())
+        print("uploaded navigational status")
+        countryIds = country_creator(connection, clean_ais_data.copy())
+        print("uploaded countries")
+        vessel = vessel_creator(connection, clean_ais_data.copy(), ship_type, countryIds)
+        print("uploaded vessels")
+        ais_message_creator(connection, clean_ais_data.copy(), mobile_type, navigational_status)
+        print("uploaded ais messages")
+        vessel_trajectory_creator(connection, clean_ais_data.copy())
+        print("uploaded vessel trajectories")
+
+        print(f" -- Finished chunk {i + 1} -- ")
+
 
 def parse_csv(file):
-    return pd.read_csv(file, compression='zip', sep=',')
+    return pd.read_csv(file, compression='zip', sep=',', chunksize=1000000)
 
 def clean_data(ais_data):
     data = clean_position(ais_data)
@@ -339,10 +346,40 @@ def single_vessel_trajectory(connection, mmsi, vessel_ais_data):
             WHERE mmsi = {mmsi}  -- Ensure this matches the vessel identifier
         )
         UPDATE vessel_trajectory
-        SET trajectory = ST_Union(existing_trajectory.trajectory, new_trajectory.new_geom)
+        SET trajectory = ST_MakeLine(existing_trajectory.trajectory, new_trajectory.new_geom)
         FROM new_trajectory, existing_trajectory
         WHERE vessel_trajectory.mmsi = {mmsi};  -- Ensuring correct reference
     """
+
+#     merge_query = f"""
+#     WITH new_trajectory AS (
+#         SELECT ST_SetSRID(
+#             ST_MakeLine(
+#                 ST_MakePointM(longitude, latitude, EXTRACT(EPOCH FROM timestamp)) 
+#                 ORDER BY timestamp
+#             ), 4326) AS new_geom
+#         FROM gps_points
+#         WHERE mmsi = {mmsi}
+#     ),
+#     existing_trajectory AS (
+#         SELECT ST_SetSRID(trajectory, 4326)
+#         FROM vessel_trajectory 
+#         WHERE id = {mmsi}
+#     )
+#     UPDATE vessel_trajectory
+#     SET trajectory = COALESCE(
+#         ST_LineMerge(
+#             ST_CollectionExtract(
+#                 ST_Union(
+#                     ST_Force3DM(existing_trajectory.trajectory),
+#                     ST_Force3DM(new_trajectory.new_geom)
+#                 ), 2
+#             )
+#         ), ST_Force3DM(new_trajectory.new_geom))  -- Preserve M in new trajectory
+#     FROM new_trajectory, existing_trajectory
+#     WHERE vessel_trajectory.id = {mmsi};
+# """
+
     cur.execute(merge_query)
 
     connection.commit()
