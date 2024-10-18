@@ -15,5 +15,5 @@
    - Mac: `source .venv/bin/activate`
 2. Run script: `python ./src/main.py -f {path/to/zipfile}.zip`
 
-## Testss
+## Tests
 -  `python -m unittest discover -s tests`
