@@ -27,6 +27,8 @@ def read_files(connection, path: str):
         print("uploaded vessel trajectories")
 
         print(f" -- Finished chunk {i + 1} -- ")
+        
+    print(f" -- Processing of file complete -- ")
 
 
 def parse_csv(file):
