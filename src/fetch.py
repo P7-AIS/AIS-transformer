@@ -325,3 +325,4 @@ def single_vessel_trajectory(connection, mmsi, vessel_ais_data):
 
     connection.commit()
     cur.close()
+    

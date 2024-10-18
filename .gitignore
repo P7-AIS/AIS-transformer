@@ -8,6 +8,8 @@ __pycache__/
 
 # .zip files
 files/*.zip
+files/*.csv
+
 
 # Distribution / packaging
 .Python
