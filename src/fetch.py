@@ -1,38 +1,6 @@
-import entity
-import codecs
-from enum import Enum
 import pandas as pd
 import numpy as np
 from datetime import datetime
-
-class CsvAtt(Enum):
-    TIMESTAMP = 0
-    TYPE_OF_MOBILE = 1
-    MMSI = 2
-    LATITUDE = 3
-    LONGITUDE = 4
-    NAVIGATIONAL_STATUS = 5
-    ROT = 5
-    SOG = 6
-    COG = 7
-    HEADING = 8
-    IMO = 9
-    CALLSIGN = 10
-    NAME = 11
-    SHIP_TYPE = 12
-    CARGO_TYPE = 13
-    WIDTH = 14
-    LENGTH = 15
-    TYPE_OF_POSITION_FIXING_DEVICE = 16
-    DRAUGHT = 17
-    DESTINATION = 18
-    ETA = 19
-    DATA_SOURCE_TYPE = 20
-    A = 20
-    B = 21
-    C = 22
-    D = 23
-
 
 def read_files(connection, path: str):
     ais_data = parse_csv(path)
@@ -351,42 +319,7 @@ def single_vessel_trajectory(connection, mmsi, vessel_ais_data):
         WHERE vessel_trajectory.mmsi = {mmsi};  -- Ensuring correct reference
     """
 
-#     merge_query = f"""
-#     WITH new_trajectory AS (
-#         SELECT ST_SetSRID(
-#             ST_MakeLine(
-#                 ST_MakePointM(longitude, latitude, EXTRACT(EPOCH FROM timestamp)) 
-#                 ORDER BY timestamp
-#             ), 4326) AS new_geom
-#         FROM gps_points
-#         WHERE mmsi = {mmsi}
-#     ),
-#     existing_trajectory AS (
-#         SELECT ST_SetSRID(trajectory, 4326)
-#         FROM vessel_trajectory 
-#         WHERE id = {mmsi}
-#     )
-#     UPDATE vessel_trajectory
-#     SET trajectory = COALESCE(
-#         ST_LineMerge(
-#             ST_CollectionExtract(
-#                 ST_Union(
-#                     ST_Force3DM(existing_trajectory.trajectory),
-#                     ST_Force3DM(new_trajectory.new_geom)
-#                 ), 2
-#             )
-#         ), ST_Force3DM(new_trajectory.new_geom))  -- Preserve M in new trajectory
-#     FROM new_trajectory, existing_trajectory
-#     WHERE vessel_trajectory.id = {mmsi};
-# """
-
     cur.execute(merge_query)
 
     connection.commit()
     cur.close()
-
-    # print(vessel_ais_data)
-    
-    # Construct empty linestring for 
-
-

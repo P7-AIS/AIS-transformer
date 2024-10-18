@@ -1,6 +1,5 @@
 from configparser import ConfigParser
 from connect import connect
-import entity
 from fetch import read_files
 import os
 from dotenv import load_dotenv, dotenv_values
