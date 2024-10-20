@@ -75,8 +75,6 @@ def ship_type_hashmap(conn):
 
     cur.close()
 
-    print(ship_type_hash)
-    
     return ship_type_hash
 
 def mobile_type_creator(connection, ais_data : pd.DataFrame):
