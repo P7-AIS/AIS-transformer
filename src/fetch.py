@@ -30,24 +30,23 @@ def read_files(connection, path: str):
         
     print(f" -- Processing of file complete -- ")
 
+def parse_csv(file_path) -> pd.DataFrame:
+    return pd.read_csv(file_path, compression='zip', sep=',', chunksize=1000000)
 
-def parse_csv(file):
-    return pd.read_csv(file, compression='zip', sep=',', chunksize=1000000)
-
-def clean_data(ais_data):
+def clean_data(ais_data : pd.DataFrame):
     data = clean_position(ais_data)
     data = clean_duplicate(data)
     data = data.rename(columns={'# Timestamp': 'Timestamp'})
     data = data.replace(np.nan, None)
     return data
 
-def clean_position(ais_data): #Removes all rows where the latitude is above 90 (GPS failure, or is it?)
+def clean_position(ais_data : pd.DataFrame) -> pd.DataFrame: #Removes all rows where the latitude is above 90 (GPS failure, or is it?)
     return ais_data[ais_data['Latitude'] <= 90]
 
-def clean_duplicate(ais_data):
+def clean_duplicate(ais_data : pd.DataFrame) -> pd.DataFrame:
     return ais_data.drop_duplicates()
 
-def ship_type_creator(connection, ais_data):
+def ship_type_creator(connection, ais_data : pd.DataFrame):
     ship_types = ais_data['Ship type'].unique()
 
     cur = connection.cursor()
@@ -78,7 +77,7 @@ def ship_type_hashmap(conn):
 
     return ship_type_hash
 
-def mobile_type_creator(connection, ais_data):
+def mobile_type_creator(connection, ais_data : pd.DataFrame):
     mobile_types = ais_data['Type of mobile'].unique()
 
     cur = connection.cursor()
@@ -109,7 +108,7 @@ def mobile_type_hashmap(conn):
 
     return mobile_type_hash
 
-def navigational_status_creator(connection, ais_data):
+def navigational_status_creator(connection, ais_data : pd.DataFrame):
     navigational_statuses = ais_data['Navigational status'].unique()
 
     cur = connection.cursor()
@@ -151,8 +150,6 @@ def country_creator(connection, ais_data):
     
     countryIds = list(countries_df['Digit'].astype(str))
 
-    # print(countryIds)
-    
     cur.execute("CREATE TEMP TABLE tmp_table ON COMMIT DROP AS SELECT * FROM mid WITH NO DATA")
     with cur.copy("COPY tmp_table (id, country, country_short) FROM STDIN") as copy:
         for i in range(0,len(countries_df.index)):
@@ -174,7 +171,7 @@ def country_creator(connection, ais_data):
 
     return countryIds
 
-def vessel_creator(connection, ais_data, ship_type, countryIDs):
+def vessel_creator(connection, ais_data : pd.DataFrame, ship_type, countryIDs):
     vessels = ais_data[['MMSI', 'Name', 'Ship type', 'IMO', 'Callsign', 'Width', 'Length', 'Type of position fixing device', 'A', 'B', 'C', 'D']].groupby('MMSI', as_index=False).first()
     vessels['IMO'] = vessels['IMO'].replace('Unknown', None)
     vessels = vessels.replace(np.nan, None)
@@ -221,12 +218,10 @@ def vessel_creator(connection, ais_data, ship_type, countryIDs):
     connection.commit()
     cur.close()
 
-def ais_message_creator(connection, ais_data, mobile_types, navigational_statuses):
+def ais_message_creator(connection, ais_data : pd.DataFrame, mobile_types, navigational_statuses):
     ais_messages = ais_data[['Timestamp', 'Type of mobile', 'MMSI', 'Latitude', 'Longitude', 'Navigational status', 'ROT', 'SOG', 'COG', 'Heading', 'Cargo type', 'Draught', 'Destination', 'ETA', 'Data source type']]
 
     cur = connection.cursor()
-
-    # print(ais_messages)
 
     cur.execute("CREATE TEMP TABLE tmp_table ON COMMIT DROP AS SELECT * FROM ais_message WITH NO DATA")
     with cur.copy("COPY tmp_table (destination, mobile_type_id, nav_status_id, data_source_type, timestamp, rot, sog, cog, heading, draught, cargo_type, eta, vessel_mmsi) FROM STDIN") as copy:
@@ -267,7 +262,7 @@ def ais_message_creator(connection, ais_data, mobile_types, navigational_statuse
     cur.close()
 
 
-def vessel_trajectory_creator(connection, ais_data):
+def vessel_trajectory_creator(connection, ais_data : pd.DataFrame):
     traj_ais_data = ais_data[['Timestamp', 'MMSI', 'Latitude', 'Longitude']]
     mmsis = traj_ais_data['MMSI'].unique()
 
@@ -276,7 +271,7 @@ def vessel_trajectory_creator(connection, ais_data):
         single_vessel_trajectory(connection, mmsi, vessel_ais_data)
     
 
-def single_vessel_trajectory(connection, mmsi, vessel_ais_data):
+def single_vessel_trajectory(connection, mmsi, vessel_ais_data : pd.DataFrame):
     cur = connection.cursor()
     cur.execute("""CREATE TEMP TABLE tmp_table (
                     MMSI BIGINT,

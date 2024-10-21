@@ -14,3 +14,6 @@
    - Win: `.\.venv\Scripts\Activate.ps1`
    - Mac: `source .venv/bin/activate`
 2. Run script: `python ./src/main.py -f {path/to/zipfile}.zip`
+
+## Tests
+-  `python -m unittest discover -s tests`
